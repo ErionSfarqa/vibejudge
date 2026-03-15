@@ -55,7 +55,8 @@ export const judgeResultSchema = z.object({
   improvements: z.array(z.string().min(8).max(180)).min(2).max(5),
   confidenceTips: z.array(z.string().min(8).max(180)).min(2).max(5),
   finalPlan: z.array(z.string().min(8).max(200)).min(3).max(5),
-  note: z.string().max(220).optional()
+  note: z.string().max(220).optional(),
+  rawText: z.string().max(8000).optional()
 });
 
 export function validateUploads(files: File[]) {

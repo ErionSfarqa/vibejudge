@@ -42,6 +42,7 @@ export type JudgeResult = {
   confidenceTips: string[];
   finalPlan: string[];
   note?: string;
+  rawText?: string;
 };
 
 export type JudgeApiErrorCode =

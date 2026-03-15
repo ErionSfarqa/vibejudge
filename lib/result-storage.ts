@@ -46,7 +46,8 @@ export function normalizeJudgeResult(value: unknown): JudgeResult | null {
     improvements: asTextList(raw.improvements, ["No improvements were returned."]),
     confidenceTips: asTextList(raw.confidenceTips, ["No confidence tips were returned."]),
     finalPlan: asTextList(raw.finalPlan, ["No final plan was returned."]),
-    note: typeof raw.note === "string" && raw.note.trim() ? raw.note.trim() : undefined
+    note: typeof raw.note === "string" && raw.note.trim() ? raw.note.trim() : undefined,
+    rawText: typeof raw.rawText === "string" && raw.rawText.trim() ? raw.rawText.trim() : undefined
   };
 }
 
