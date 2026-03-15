@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
-import { analyzeWithOllama } from "@/lib/ai/ollama";
+import { analyzeWithOllama, OllamaServiceError } from "@/lib/ai/ollama";
 import { buildGuardrailResult } from "@/lib/fallback-results";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { inspectJudgeInput } from "@/lib/safety";
@@ -80,7 +80,10 @@ export async function POST(request: Request) {
               ? error.message
               : "Ollama could not complete the request."
         },
-        { status: 502, headers }
+        {
+          status: error instanceof OllamaServiceError ? error.status : 502,
+          headers
+        }
       );
     }
   } catch (error) {

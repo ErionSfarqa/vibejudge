@@ -5,6 +5,7 @@ import { judgeResultSchema } from "@/lib/validations";
 
 const DEFAULT_MODEL = "gpt-oss:120b-cloud";
 const DIRECT_CLOUD_HOST = "https://ollama.com";
+const LOCAL_OLLAMA_HOST = "http://127.0.0.1:11434";
 
 const judgeResultFormat = {
   type: "object",
@@ -121,7 +122,24 @@ Always return structured JSON in this exact shape:
 Return JSON only. Do not return markdown. Do not return commentary outside the JSON.
 `.trim();
 
-type OllamaMode = "local-ollama" | "cloud-api";
+type OllamaMode = "local-development" | "cloud-api";
+
+type OllamaTarget = {
+  client: Ollama;
+  mode: OllamaMode;
+  requestedModel: string;
+  model: string;
+};
+
+export class OllamaServiceError extends Error {
+  status: number;
+
+  constructor(message: string, status = 502) {
+    super(message);
+    this.name = "OllamaServiceError";
+    this.status = status;
+  }
+}
 
 function getRequestedModel() {
   return process.env.OLLAMA_MODEL?.trim() || DEFAULT_MODEL;
@@ -131,22 +149,38 @@ function normalizeCloudModelName(model: string) {
   return model.replace(/-cloud$/, "");
 }
 
-function createOllamaClient() {
+function isLocalDevelopment() {
+  return process.env.NODE_ENV === "development";
+}
+
+function createOllamaTarget(): OllamaTarget {
   const requestedModel = getRequestedModel();
   const apiKey = process.env.OLLAMA_API_KEY?.trim();
 
   if (apiKey) {
     return {
-      client: new Ollama({ host: DIRECT_CLOUD_HOST }),
+      client: new Ollama({
+        host: DIRECT_CLOUD_HOST,
+        headers: {
+          Authorization: `Bearer ${apiKey}`
+        }
+      }),
       mode: "cloud-api" as OllamaMode,
       requestedModel,
       model: normalizeCloudModelName(requestedModel)
     };
   }
 
+  if (!isLocalDevelopment()) {
+    throw new OllamaServiceError(
+      "OLLAMA_API_KEY is required in production. Deployed apps cannot reach a local Ollama instance. Set OLLAMA_API_KEY to use https://ollama.com directly.",
+      500
+    );
+  }
+
   return {
-    client: new Ollama(),
-    mode: "local-ollama" as OllamaMode,
+    client: new Ollama({ host: LOCAL_OLLAMA_HOST }),
+    mode: "local-development" as OllamaMode,
     requestedModel,
     model: requestedModel
   };
@@ -250,38 +284,41 @@ function isLikelyImageCapabilityError(error: unknown) {
   ].some((pattern) => message.includes(pattern));
 }
 
-function normalizeOllamaError(error: unknown, mode: OllamaMode, requestedModel: string) {
+function normalizeOllamaError(error: unknown, target: OllamaTarget) {
   const message = getErrorMessage(error);
   const lower = message.toLowerCase();
 
-  if (mode === "cloud-api" && (lower.includes("401") || lower.includes("403") || lower.includes("unauthorized"))) {
-    return "OLLAMA_API_KEY was rejected by Ollama Cloud. Check the key and try again.";
+  if (target.mode === "cloud-api") {
+    if (lower.includes("401") || lower.includes("403") || lower.includes("unauthorized")) {
+      return `OLLAMA_API_KEY was rejected by Ollama Cloud. ${message}`;
+    }
+
+    if (lower.includes("not found") || (lower.includes("model") && lower.includes("pull"))) {
+      return `The Ollama Cloud model "${target.model}" is not available. ${message}`;
+    }
+
+    return `Ollama Cloud request failed. ${message}`;
   }
 
   if (lower.includes("not found") || (lower.includes("model") && lower.includes("pull"))) {
-    if (mode === "cloud-api") {
-      return `The Ollama model "${requestedModel}" is not available for this cloud request. Check OLLAMA_MODEL or use the default cloud model.`;
-    }
-
-    return `The Ollama model "${requestedModel}" is not available locally. Run "ollama signin" and "ollama pull ${requestedModel}", then try again.`;
+    return `The Ollama model "${target.requestedModel}" is not available locally. Run "ollama signin" and "ollama pull ${target.requestedModel}", then try again.`;
   }
 
-  if (mode === "local-ollama" && (lower.includes("fetch failed") || lower.includes("econnrefused") || lower.includes("connect"))) {
-    return `Could not reach local Ollama. Start Ollama, run "ollama signin", pull "${requestedModel}", and try again. You can also set OLLAMA_API_KEY to use Ollama Cloud directly.`;
+  if (lower.includes("fetch failed") || lower.includes("econnrefused") || lower.includes("connect")) {
+    return `Could not reach local Ollama at ${LOCAL_OLLAMA_HOST}. Start Ollama locally, run "ollama signin", pull "${target.requestedModel}", and try again.`;
   }
 
-  return `Ollama could not complete the review. ${message}`;
+  return `Local Ollama request failed. ${message}`;
 }
 
 async function sendChatRequest(
+  target: OllamaTarget,
   input: JudgeRequest,
   screenshots: ScreenshotMeta[],
   imagePayload: Uint8Array[] | undefined
 ) {
-  const { client, model } = createOllamaClient();
-
-  return client.chat({
-    model,
+  return target.client.chat({
+    model: target.model,
     stream: false,
     format: judgeResultFormat,
     options: {
@@ -306,16 +343,16 @@ export async function analyzeWithOllama(
   files: File[],
   screenshots: ScreenshotMeta[]
 ) {
-  const { mode, requestedModel } = createOllamaClient();
+  const target = createOllamaTarget();
   const imagePayload = files.length ? await buildImagePayload(files.slice(0, 4)) : undefined;
 
   try {
-    const response = await sendChatRequest(input, screenshots, imagePayload);
+    const response = await sendChatRequest(target, input, screenshots, imagePayload);
     return parseJudgeResult(response.message.content);
   } catch (error) {
     if (imagePayload?.length && isLikelyImageCapabilityError(error)) {
       try {
-        const retryResponse = await sendChatRequest(input, screenshots, undefined);
+        const retryResponse = await sendChatRequest(target, input, screenshots, undefined);
         const retryResult = parseJudgeResult(retryResponse.message.content);
 
         return {
@@ -325,11 +362,11 @@ export async function analyzeWithOllama(
             "This review relied more on your bio, context, and screenshot metadata because image input was not accepted for this run."
         };
       } catch (retryError) {
-        throw new Error(normalizeOllamaError(retryError, mode, requestedModel));
+        throw new OllamaServiceError(normalizeOllamaError(retryError, target));
       }
     }
 
-    throw new Error(normalizeOllamaError(error, mode, requestedModel));
+    throw new OllamaServiceError(normalizeOllamaError(error, target));
   }
 }
 

@@ -14,7 +14,16 @@ VibeJudge is a Next.js app that reviews how a social profile comes across. The u
 
 VibeJudge now uses the official JavaScript Ollama client on the server side.
 
-Recommended local cloud-model workflow:
+Production and Netlify deployments must use Ollama Cloud directly.
+
+Required for deployed environments:
+
+1. Create an Ollama API key at `https://ollama.com/settings/keys`.
+2. Add `OLLAMA_API_KEY` to your Netlify environment variables.
+
+When `OLLAMA_API_KEY` is set, VibeJudge calls Ollama Cloud at `https://ollama.com` from the Next.js server route.
+
+Optional local development fallback:
 
 1. Install Ollama on your machine.
 2. Sign in once:
@@ -29,12 +38,7 @@ ollama signin
 ollama pull gpt-oss:120b-cloud
 ```
 
-Optional direct cloud API workflow:
-
-- Create an Ollama API key at `https://ollama.com/settings/keys`
-- Add `OLLAMA_API_KEY` to `.env.local`
-
-If `OLLAMA_API_KEY` is set, VibeJudge calls Ollama Cloud directly from the Next.js server route. If it is not set, VibeJudge uses your local Ollama app or daemon.
+If `OLLAMA_API_KEY` is not set, VibeJudge only falls back to your local Ollama instance during local development. Production builds do not attempt `localhost`.
 
 ## Environment Variables
 
@@ -46,7 +50,7 @@ Required in practice:
 OLLAMA_MODEL=gpt-oss:120b-cloud
 ```
 
-Optional:
+Required for Netlify or any deployed production runtime:
 
 ```env
 OLLAMA_API_KEY=your_ollama_cloud_api_key_here
@@ -55,8 +59,9 @@ OLLAMA_API_KEY=your_ollama_cloud_api_key_here
 Notes:
 
 - `OLLAMA_MODEL` defaults to `gpt-oss:120b-cloud` in code, so the app will still boot if you forget to add it.
-- If you use `OLLAMA_API_KEY`, the server route uses Ollama Cloud directly.
-- If you do not use `OLLAMA_API_KEY`, make sure Ollama is running locally and that you already pulled `gpt-oss:120b-cloud`.
+- If `OLLAMA_API_KEY` is set, the server route uses Ollama Cloud directly at `https://ollama.com`.
+- If `OLLAMA_API_KEY` is not set, localhost is only used during local `npm run dev`.
+- Netlify and other deployed production runtimes must provide `OLLAMA_API_KEY`; they cannot reach your computer's local Ollama instance.
 
 ## Install
 
@@ -82,7 +87,7 @@ cp .env.example .env.local
 
 3. Set `OLLAMA_MODEL=gpt-oss:120b-cloud` in `.env.local`.
 
-4. If you want direct cloud API access from the Next.js server route, also add `OLLAMA_API_KEY`.
+4. Add `OLLAMA_API_KEY` if you want the same Ollama Cloud path locally that production uses.
 
 ## Run
 
@@ -107,10 +112,10 @@ npm run build
 
 If the app says Ollama could not be reached:
 
-- Start Ollama locally
+- In Netlify or any deployed environment, set `OLLAMA_API_KEY`
+- For local development without `OLLAMA_API_KEY`, start Ollama locally
 - Run `ollama signin`
 - Run `ollama pull gpt-oss:120b-cloud`
-- Or add `OLLAMA_API_KEY` to use the direct cloud API path
 
 If you see stale Next.js cache errors:
 
