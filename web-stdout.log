@@ -1,0 +1,13 @@
+
+> vibejudge@0.1.0 dev:web
+> next dev
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3010
+  - Environments: .env.local
+  - Experiments (use with caution):
+    · typedRoutes
+
+ ✓ Starting...
+ ✓ Ready in 1731ms
+ ○ Compiling / ...
