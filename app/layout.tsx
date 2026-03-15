@@ -7,6 +7,8 @@ import { siteConfig } from "@/lib/site";
 
 import "./globals.css";
 
+const GOOGLE_SITE_VERIFICATION = "REPLACE_WITH_CODE";
+
 const manrope = Manrope({
   subsets: ["latin"],
   variable: "--font-manrope"
@@ -58,6 +60,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <meta name="google-site-verification" content={GOOGLE_SITE_VERIFICATION} />
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8207317379058620"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body className={`${manrope.variable} ${fraunces.variable}`}>
         <SiteShell>{children}</SiteShell>
       </body>

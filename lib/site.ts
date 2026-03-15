@@ -11,7 +11,7 @@ export const siteConfig = {
   name: "VibeJudge",
   description:
     "Answer guided questions, add your bio and screenshots, and get a clear review of how your social presence comes across.",
-  url: "https://vibejudge.ai",
+  url: "https://vibejudge.app",
   nav: [
     { href: "/", label: "Home" },
     { href: "/judge", label: "Start Review" },
