@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Manrope } from "next/font/google";
 import type { ReactNode } from "react";
 
-import { Footer } from "@/components/site/footer";
-import { Navbar } from "@/components/site/navbar";
+import { SiteShell } from "@/components/site/site-shell";
 import { siteConfig } from "@/lib/site";
 
 import "./globals.css";
@@ -60,11 +59,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${manrope.variable} ${fraunces.variable}`}>
-        <div className="relative isolate overflow-x-clip">
-          <Navbar />
-          <main>{children}</main>
-          <Footer />
-        </div>
+        <SiteShell>{children}</SiteShell>
       </body>
     </html>
   );

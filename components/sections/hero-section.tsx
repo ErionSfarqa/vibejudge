@@ -24,9 +24,9 @@ export function HeroSection() {
           </Reveal>
           <Reveal delay={0.12}>
             <p className="mt-6 max-w-2xl text-balance text-lg leading-8 text-slate-600 sm:text-xl">
-              VibeJudge gives you a clear review of your social presence. Add a few basics, paste
-              your bio, upload screenshots, and get direct feedback on what looks strong, what weakens
-              the profile, and how to improve it.
+              VibeJudge gives you a clear review of your social presence. Answer a few guided
+              questions, add your bio, upload screenshots, and get direct feedback on what looks
+              strong, what weakens the profile, and how to improve it.
             </p>
           </Reveal>
           <Reveal delay={0.18}>

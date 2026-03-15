@@ -10,7 +10,7 @@ type NavItem = {
 export const siteConfig = {
   name: "VibeJudge",
   description:
-    "Upload your bio and profile screenshots to get a clear, practical review of how your social presence comes across.",
+    "Answer guided questions, add your bio and screenshots, and get a clear review of how your social presence comes across.",
   url: "https://vibejudge.ai",
   nav: [
     { href: "/", label: "Home" },
@@ -22,27 +22,27 @@ export const siteConfig = {
 };
 
 export const heroBadges = [
-  "Simple 4-step flow",
+  "Guided question flow",
   "Profile-focused feedback",
-  "Clear improvement notes"
+  "Clear improvement plan"
 ];
 
 export const howItWorks = [
   {
-    title: "Add the basics",
-    description: "Start with your name, age, and gender so the review has basic context."
+    title: "Answer the quick intro questions",
+    description: "VibeJudge asks about your lifestyle, confidence, goals, and the impression you want to give off."
   },
   {
-    title: "Share your bio",
-    description: "Paste your bio and anything else that helps explain the tone you are going for."
+    title: "Share the profile context",
+    description: "Add your bio and any extra context so the review understands how you currently present yourself."
   },
   {
     title: "Upload screenshots",
-    description: "Add profile, post, or story screenshots so the review can assess your overall presentation."
+    description: "Add profile, post, or story screenshots so the review can assess your visual presentation too."
   },
   {
     title: "Get the review",
-    description: "VibeJudge returns a direct, helpful breakdown of strengths, weak spots, and next steps."
+    description: "VibeJudge returns a direct, helpful breakdown of strengths, weak spots, aura blockers, and next steps."
   }
 ];
 
@@ -108,7 +108,7 @@ export const faqs = [
   {
     question: "What does VibeJudge review?",
     answer:
-      "It reviews the way your social presence comes across based on the basics you enter, the bio you share, and any screenshots you upload."
+      "It reviews the way your social presence comes across based on the guided answers you give, the bio you share, and any screenshots you upload."
   },
   {
     question: "Is the feedback insulting?",

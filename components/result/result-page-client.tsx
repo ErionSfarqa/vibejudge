@@ -5,10 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Check, Copy } from "lucide-react";
 
-import { Logo } from "@/components/site/logo";
 import { Button } from "@/components/ui/button";
 import type { JudgeResult } from "@/lib/types";
 import { buildResultCopy, clearJudgeResult, loadJudgeResult } from "@/lib/result-storage";
+import { cn } from "@/lib/utils";
 
 type StoredState = {
   result: JudgeResult | null;
@@ -16,9 +16,9 @@ type StoredState = {
 };
 
 const scoreRows = [
-  { key: "auraScore", label: "Aura Score" },
-  { key: "confidenceScore", label: "Confidence Score" },
-  { key: "socialPresenceScore", label: "Social Presence" }
+  { key: "auraScore", label: "Aura" },
+  { key: "confidenceScore", label: "Confidence" },
+  { key: "socialPresenceScore", label: "Social" }
 ] as const;
 
 export function ResultPageClient() {
@@ -32,6 +32,17 @@ export function ResultPageClient() {
 
   const result = stored?.result ?? null;
   const copyText = useMemo(() => (result ? buildResultCopy(result) : ""), [result]);
+  const quickSummary = useMemo(
+    () =>
+      result
+        ? [
+            { label: "Strongest trait", value: result.strengths[0] ?? "Still analyzing." },
+            { label: "Biggest weakness", value: result.weakPoints[0] ?? "Still analyzing." },
+            { label: "Fix first", value: result.improvements[0] ?? "Still analyzing." }
+          ]
+        : [],
+    [result]
+  );
 
   async function handleCopy() {
     if (!copyText) {
@@ -101,7 +112,9 @@ export function ResultPageClient() {
     <section className="section-shell">
       <div className="page-container max-w-5xl space-y-8">
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <Logo className="scale-90 origin-left" />
+          <Link href="/" className="font-display text-2xl font-semibold tracking-tight text-foreground">
+            VibeJudge
+          </Link>
           <div className="flex flex-wrap gap-3">
             <Button type="button" variant="secondary" onClick={handleCopy}>
               {copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
@@ -116,24 +129,50 @@ export function ResultPageClient() {
           </div>
         </header>
 
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: "easeOut" }}
-          className="glass-panel overflow-hidden p-8 sm:p-10"
-        >
-          <div className="rounded-[2rem] border border-brand/10 bg-[linear-gradient(135deg,rgba(31,60,136,0.12),rgba(255,255,255,0.7))] p-8 text-center sm:p-10">
-            <p className="text-sm font-semibold text-brand">Result Summary</p>
-            <h1 className="mx-auto mt-5 max-w-3xl font-display text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
-              {result.overallVibe}
-            </h1>
-            <div className="mx-auto mt-8 grid max-w-3xl gap-4 md:grid-cols-3">
+        <div className="flex flex-col gap-8">
+          <section className="order-1 glass-panel p-5 sm:order-2 sm:p-7">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-brand">Core Scores</p>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  A quick read on the three signals that shape the overall impression.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
               {scoreRows.map((item) => (
                 <ScoreCard key={item.key} label={item.label} value={result[item.key]} />
               ))}
             </div>
-          </div>
-        </motion.div>
+          </section>
+
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+            className="order-2 glass-panel overflow-hidden p-6 sm:order-1 sm:p-10"
+          >
+            <div className="rounded-[2rem] border border-brand/10 bg-[linear-gradient(135deg,rgba(31,60,136,0.12),rgba(255,255,255,0.7))] p-6 text-center sm:p-10">
+              <p className="text-sm font-semibold text-brand">Result Summary</p>
+              <h1 className="mx-auto mt-4 max-w-3xl font-display text-3xl font-semibold tracking-tight text-foreground sm:mt-5 sm:text-5xl">
+                {result.overallVibe}
+              </h1>
+              <div className="mx-auto mt-6 grid max-w-3xl gap-3 md:grid-cols-3">
+                {quickSummary.map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-[1.5rem] border border-white/60 bg-white/70 px-4 py-4 text-left shadow-sm"
+                  >
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand/75">
+                      {item.label}
+                    </p>
+                    <p className="mt-3 text-sm leading-6 text-slate-700">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        </div>
 
         <div className="grid gap-4">
           <TextSection
@@ -141,9 +180,9 @@ export function ResultPageClient() {
             description="How the profile likely lands in the first few seconds."
             value={result.firstImpression}
           />
-          <ListSection title="Strengths" items={result.strengths} />
-          <ListSection title="Weak Points" items={result.weakPoints} />
-          <ListSection title="Low Aura Factors" items={result.lowAuraFactors} />
+          <ListSection title="Strengths" items={result.strengths} highlightLabel="Strongest trait" />
+          <ListSection title="Weak Points" items={result.weakPoints} highlightLabel="Biggest weakness" />
+          <ListSection title="Low Aura Factors" items={result.lowAuraFactors} highlightLabel="Hurts the vibe" />
           <div className="grid gap-4 lg:grid-cols-2">
             <TextSection
               title="Bio Analysis"
@@ -156,7 +195,7 @@ export function ResultPageClient() {
               value={result.profilePresentation}
             />
           </div>
-          <ListSection title="Improvement Suggestions" items={result.improvements} />
+          <ListSection title="Improvement Suggestions" items={result.improvements} highlightLabel="Fix this first" />
           <ListSection title="Confidence Tips" items={result.confidenceTips} />
           <ListSection title="Final Aura Upgrade Plan" items={result.finalPlan} />
           {result.note ? (
@@ -178,12 +217,15 @@ export function ResultPageClient() {
 
 function ScoreCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-[1.75rem] border border-line bg-white/70 p-5 text-left shadow-sm">
+    <div className="rounded-[1.5rem] border border-line bg-white/70 p-4 text-left shadow-sm sm:rounded-[1.75rem] sm:p-5">
       <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{label}</p>
-      <div className="mt-4 flex items-end justify-between gap-4">
-        <p className="text-4xl font-semibold text-foreground">{value}</p>
-        <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-200">
-          <div className="h-full rounded-full bg-brand" style={{ width: `${value}%` }} />
+      <div className="mt-4">
+        <div className="flex items-end justify-between gap-4">
+          <p className="text-3xl font-semibold text-foreground sm:text-4xl">{value}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">/100</p>
+        </div>
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
+          <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${value}%` }} />
         </div>
       </div>
     </div>
@@ -199,25 +241,55 @@ function TextSection({
   description: string;
   value: string;
 }) {
+  const leadMatch = value.match(/[\s\S]*?[.!?](?:\s|$)/);
+  const lead = leadMatch?.[0].trim() || value;
+  const rest = leadMatch ? value.slice(leadMatch[0].length).trim() : "";
+
   return (
-    <section className="glass-panel p-6 sm:p-7">
+    <section className="glass-panel p-5 sm:p-7">
       <p className="text-sm font-semibold text-brand">{title}</p>
       <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
-      <p className="mt-5 text-base leading-8 text-slate-700">{value}</p>
+      <div className="mt-4 rounded-[1.4rem] border border-brand/10 bg-brand-sky/35 px-4 py-3">
+        <p className="text-sm font-medium leading-6 text-slate-800">{lead}</p>
+      </div>
+      {rest ? (
+        <p className="mt-4 text-sm leading-6 text-slate-700 sm:text-base sm:leading-7">{rest}</p>
+      ) : null}
     </section>
   );
 }
 
-function ListSection({ title, items }: { title: string; items: string[] }) {
+function ListSection({
+  title,
+  items,
+  highlightLabel
+}: {
+  title: string;
+  items: string[];
+  highlightLabel?: string;
+}) {
   const safeItems = Array.isArray(items) && items.length ? items : ["No details were returned for this section."];
 
   return (
-    <section className="glass-panel p-6 sm:p-7">
+    <section className="glass-panel p-5 sm:p-7">
       <p className="text-sm font-semibold text-brand">{title}</p>
       <div className="mt-5 grid gap-3">
-        {safeItems.map((item) => (
-          <div key={item} className="rounded-[1.5rem] border border-line bg-background px-4 py-4">
-            <p className="text-sm leading-7 text-slate-700">{item}</p>
+        {safeItems.map((item, index) => (
+          <div
+            key={item}
+            className={cn(
+              "rounded-[1.5rem] border border-line bg-background px-4 py-4",
+              index === 0 && highlightLabel ? "border-brand/20 bg-brand-sky/35" : ""
+            )}
+          >
+            {index === 0 && highlightLabel ? (
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand/75">
+                {highlightLabel}
+              </p>
+            ) : null}
+            <p className={cn("text-sm leading-6 text-slate-700 sm:leading-7", index === 0 && highlightLabel ? "mt-2" : "")}>
+              {item}
+            </p>
           </div>
         ))}
       </div>

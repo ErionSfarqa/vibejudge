@@ -19,8 +19,36 @@ function hasRepeatedNoise(value: string) {
   return /(.)\1{14,}/.test(value) || /\b(\w+)(?:\s+\1){7,}\b/i.test(value);
 }
 
+function flattenText(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return value.join(" ");
+  }
+
+  return value;
+}
+
 export function inspectJudgeInput(input: JudgeRequest, screenshots: ScreenshotMeta[] = []) {
-  const combined = [input.name, input.gender, input.bio, input.context, ...screenshots.map((file) => file.name)]
+  const combined = [
+    input.name,
+    input.gender,
+    input.gymStatus,
+    input.trainingFrequency,
+    flattenText(input.currentGoal),
+    flattenText(input.lifestyle),
+    input.disciplineLevel,
+    input.energyLevel,
+    input.socialConfidence,
+    input.socialPresence,
+    flattenText(input.biggestWeakness),
+    input.perceivedByOthers,
+    flattenText(input.desiredPerception),
+    input.styleImage,
+    input.socialMediaActivity,
+    flattenText(input.habits),
+    flattenText(input.improvementFocus),
+    input.context,
+    ...screenshots.map((file) => file.name)
+  ]
     .filter(Boolean)
     .join(" ")
     .trim();

@@ -5,17 +5,33 @@ import { analyzeWithOllama, OllamaServiceError } from "@/lib/ai/ollama";
 import { buildGuardrailResult } from "@/lib/fallback-results";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { inspectJudgeInput } from "@/lib/safety";
-import type { JudgeRequest, ScreenshotMeta } from "@/lib/types";
+import type { JudgeApiError, JudgeApiResponse, JudgeRequest, ScreenshotMeta } from "@/lib/types";
 import { getClientIp } from "@/lib/utils";
 import { judgeRequestSchema, validateUploads } from "@/lib/validations";
 
 export const runtime = "nodejs";
+
+function getStringList(formData: FormData, key: string) {
+  return formData
+    .getAll(key)
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
 
 function buildRateLimitHeaders(remaining: number, resetAt: number) {
   return {
     "X-RateLimit-Remaining": String(remaining),
     "X-RateLimit-Reset": String(resetAt)
   };
+}
+
+function buildErrorResponse(
+  error: JudgeApiError,
+  status: number,
+  headers: Record<string, string>
+) {
+  return NextResponse.json<JudgeApiResponse>({ error }, { status, headers });
 }
 
 export async function POST(request: Request) {
@@ -29,9 +45,14 @@ export async function POST(request: Request) {
   const headers = buildRateLimitHeaders(rateLimit.remaining, rateLimit.resetAt);
 
   if (!rateLimit.success) {
-    return NextResponse.json(
-      { error: "Too many review requests. Give it a minute and try again." },
-      { status: 429, headers }
+    return buildErrorResponse(
+      {
+        code: "RATE_LIMITED",
+        userMessage: "You have sent a few reviews quickly. Give it a minute, then try again.",
+        retryable: true
+      },
+      429,
+      headers
     );
   }
 
@@ -41,7 +62,21 @@ export async function POST(request: Request) {
       name: formData.get("name"),
       age: formData.get("age"),
       gender: formData.get("gender"),
-      bio: formData.get("bio"),
+      gymStatus: formData.get("gymStatus"),
+      trainingFrequency: formData.get("trainingFrequency") ?? undefined,
+      currentGoal: getStringList(formData, "currentGoal"),
+      lifestyle: getStringList(formData, "lifestyle"),
+      disciplineLevel: formData.get("disciplineLevel"),
+      energyLevel: formData.get("energyLevel"),
+      socialConfidence: formData.get("socialConfidence"),
+      socialPresence: formData.get("socialPresence"),
+      biggestWeakness: getStringList(formData, "biggestWeakness"),
+      perceivedByOthers: formData.get("perceivedByOthers"),
+      desiredPerception: getStringList(formData, "desiredPerception"),
+      styleImage: formData.get("styleImage"),
+      socialMediaActivity: formData.get("socialMediaActivity"),
+      habits: getStringList(formData, "habits"),
+      improvementFocus: getStringList(formData, "improvementFocus"),
       context: formData.get("context") ?? undefined
     }) as JudgeRequest;
 
@@ -60,7 +95,7 @@ export async function POST(request: Request) {
     const review = inspectJudgeInput(payload, screenshotMeta);
 
     if (review.blocked) {
-      return NextResponse.json(
+      return NextResponse.json<JudgeApiResponse>(
         {
           result: buildGuardrailResult(review.reason),
           meta: { guardrailed: true }
@@ -71,32 +106,46 @@ export async function POST(request: Request) {
 
     try {
       const result = await analyzeWithOllama(payload, screenshots, screenshotMeta);
-      return NextResponse.json({ result }, { headers });
+      return NextResponse.json<JudgeApiResponse>({ result }, { headers });
     } catch (error) {
-      return NextResponse.json(
+      if (error instanceof OllamaServiceError) {
+        return buildErrorResponse(error.toResponseError(), error.status, headers);
+      }
+
+      return buildErrorResponse(
         {
-          error:
-            error instanceof Error
-              ? error.message
-              : "Ollama could not complete the request."
+          code: "AI_UPSTREAM_ERROR",
+          userMessage: "The AI review service ran into a temporary problem. Please try again.",
+          adminMessage:
+            error instanceof Error ? error.message : "Ollama could not complete the request.",
+          retryable: true
         },
-        {
-          status: error instanceof OllamaServiceError ? error.status : 502,
-          headers
-        }
+        502,
+        headers
       );
     }
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json(
-        { error: error.issues[0]?.message ?? "Please check your input and try again." },
-        { status: 400, headers }
+      return buildErrorResponse(
+        {
+          code: "VALIDATION_ERROR",
+          userMessage: error.issues[0]?.message ?? "Please check your answers and try again.",
+          retryable: false
+        },
+        400,
+        headers
       );
     }
 
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Invalid request body." },
-      { status: 400, headers }
+    return buildErrorResponse(
+      {
+        code: "BAD_REQUEST",
+        userMessage: "The review request could not be read. Please try again.",
+        adminMessage: error instanceof Error ? error.message : "Invalid request body.",
+        retryable: true
+      },
+      400,
+      headers
     );
   }
 }
