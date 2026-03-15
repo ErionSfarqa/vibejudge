@@ -11,6 +11,23 @@ import { judgeResultSchema } from "@/lib/validations";
 
 const DEFAULT_MODEL = "gpt-oss:120b-cloud";
 const DIRECT_CLOUD_HOST = "https://ollama.com";
+const RESPONSE_SCHEMA_TEMPLATE = `{
+  "auraScore": 74,
+  "confidenceScore": 68,
+  "profileClarityScore": 59,
+  "socialPresenceScore": 71,
+  "overallVibe": "string",
+  "firstImpression": "string",
+  "strengths": ["string", "string"],
+  "weakPoints": ["string", "string"],
+  "lowAuraFactors": ["string", "string"],
+  "bioAnalysis": "string",
+  "profilePresentation": "string",
+  "improvements": ["string", "string"],
+  "confidenceTips": ["string", "string"],
+  "finalPlan": ["string", "string", "string"],
+  "note": "optional string"
+}`;
 
 const SYSTEM_PROMPT = `
 You are an AI social profile analyst.
@@ -83,32 +100,29 @@ Important rules:
 - Make reasonable observations and useful suggestions.
 - If screenshots are unclear, limited, or only represented by metadata, say so briefly in the optional note field instead of inventing details.
 
-Always return structured JSON in this exact shape:
-{
-  "auraScore": 74,
-  "confidenceScore": 68,
-  "profileClarityScore": 59,
-  "socialPresenceScore": 71,
-  "overallVibe": "...",
-  "firstImpression": "...",
-  "strengths": ["...", "..."],
-  "weakPoints": ["...", "..."],
-  "lowAuraFactors": ["...", "..."],
-  "bioAnalysis": "...",
-  "profilePresentation": "...",
-  "improvements": ["...", "..."],
-  "confidenceTips": ["...", "..."],
-  "finalPlan": ["...", "..."],
-  "note": "optional"
-}
+Output contract:
+- You must return ONLY valid JSON.
+- Do not include markdown.
+- Do not wrap the JSON in code fences.
+- Do not write any explanation before or after the JSON.
+- Do not add headings.
+- Do not add notes outside the JSON object.
+- Do not add commentary.
+- Return exactly one valid JSON object.
+- Your response must start with "{" and end with "}".
 
-Return JSON only.
-Do not return markdown.
-Do not use code fences.
-Do not include intro text.
-Do not include explanation outside the JSON.
-Do not include trailing notes after the JSON.
-Your response must start with "{" and end with "}".
+Schema requirements:
+- Every required field must exist.
+- Arrays must always be arrays.
+- Use short, clear strings.
+- Keep the output concise enough for mobile.
+- Do not include extra fields beyond the schema below, except the optional "note" field.
+- Strengths, weakPoints, lowAuraFactors, improvements, and confidenceTips should each contain 2 to 5 short items.
+- finalPlan should contain 3 to 5 short items.
+- Keep overallVibe, firstImpression, bioAnalysis, and profilePresentation direct and compact.
+
+Return this schema exactly:
+${RESPONSE_SCHEMA_TEMPLATE}
 `.trim();
 
 type OllamaTarget = {
@@ -229,35 +243,41 @@ function buildUserPrompt(input: JudgeRequest, screenshots: ScreenshotMeta[]) {
       : `${input.gymStatus}. Training frequency: ${input.trainingFrequency?.trim() || "Not shared."}`;
 
   return [
-    `Name: ${input.name}`,
-    `Age: ${input.age}`,
-    `Gender: ${input.gender}`,
+    "USER PROFILE INPUT",
+    `name: ${input.name}`,
+    `age: ${input.age}`,
+    `gender: ${input.gender}`,
     "",
-    "Questionnaire context:",
-    `Gym routine: ${gymSummary}`,
-    `Current goal: ${formatSelections(input.currentGoal)}`,
-    `Lifestyle: ${formatSelections(input.lifestyle)}`,
-    `Discipline level: ${input.disciplineLevel}`,
-    `Energy level: ${input.energyLevel}`,
-    `Social confidence: ${input.socialConfidence}`,
-    `Current social presence: ${input.socialPresence}`,
-    `Biggest weakness: ${formatSelections(input.biggestWeakness)}`,
-    `How they think others see them: ${input.perceivedByOthers}`,
-    `How they want to be seen: ${formatSelections(input.desiredPerception)}`,
-    `Style / image: ${input.styleImage}`,
-    `Social media activity: ${input.socialMediaActivity}`,
-    `Habits / consistency: ${formatSelections(input.habits)}`,
-    `Main improvement focus: ${formatSelections(input.improvementFocus)}`,
+    "QUESTIONNAIRE",
+    `gymRoutine: ${gymSummary}`,
+    `currentGoal: ${formatSelections(input.currentGoal)}`,
+    `lifestyle: ${formatSelections(input.lifestyle)}`,
+    `disciplineLevel: ${input.disciplineLevel}`,
+    `energyLevel: ${input.energyLevel}`,
+    `socialConfidence: ${input.socialConfidence}`,
+    `socialPresence: ${input.socialPresence}`,
+    `biggestWeakness: ${formatSelections(input.biggestWeakness)}`,
+    `perceivedByOthers: ${input.perceivedByOthers}`,
+    `desiredPerception: ${formatSelections(input.desiredPerception)}`,
+    `styleImage: ${input.styleImage}`,
+    `socialMediaActivity: ${input.socialMediaActivity}`,
+    `habits: ${formatSelections(input.habits)}`,
+    `improvementFocus: ${formatSelections(input.improvementFocus)}`,
     "",
-    "Extra context:",
-    input.context?.trim() || "None provided.",
+    "EXTRA_CONTEXT",
+    `context: ${input.context?.trim() || "None provided."}`,
     "",
-    "Screenshot notes:",
+    "SCREENSHOT_NOTES",
     buildScreenshotSummary(screenshots),
     "",
-    "Analyze the user's social profile presence using the system instructions.",
-    "Return JSON only.",
-    "No markdown. No code fences. No intro text. No trailing notes."
+    "FORMATTING INSTRUCTION",
+    "Return ONLY one valid JSON object matching the required schema.",
+    "No markdown.",
+    "No code fences.",
+    "No explanation.",
+    "No intro sentence.",
+    "No notes before or after.",
+    "No extra text."
   ].join("\n");
 }
 
@@ -272,6 +292,7 @@ async function buildImagePayload(files: File[]) {
 
 function cleanModelText(value: string) {
   return value
+    .replace(/^\uFEFF/, "")
     .trim()
     .replace(/^```json/i, "")
     .replace(/^```/, "")
